@@ -1,4 +1,4 @@
-name: Build wheel
+name: Build ARM wheel
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -18,18 +19,31 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install system deps
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            gcc-aarch64-linux-gnu \
+            pkg-config \
+            libssl-dev
 
       - name: Install maturin
         run: pip install maturin
 
-      - name: Build wheel
+      - name: Build ARM wheel
+        env:
+          CARGO_BUILD_TARGET: aarch64-unknown-linux-gnu
         run: |
           cd BinaryOptionsToolsV2
-          maturin build --release
+          maturin build \
+            --release \
+            --target aarch64-unknown-linux-gnu
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: BinaryOptionsToolsV2/target/wheels/*.whl
-
