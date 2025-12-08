@@ -1,4 +1,4 @@
-name: Build wheel
+name: Build ARM wheel
 
 on:
   push:
@@ -10,45 +10,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # -------- x86_64 wheel --------
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ARM wheel
+        uses: addnab/docker-run-action@v3
         with:
-          python-version: '3.10'
+          image: quay.io/pypa/manylinux_2_34_aarch64
+          options: --platform linux/arm64
+          run: |
+            yum install -y git openssl-devel python3-devel
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            source $HOME/.cargo/env
+            cd /workspace/BinaryOptionsToolsV2
+            python3 -m pip install maturin
+            maturin build --release
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install maturin
-        run: pip install maturin
-
-      - name: Build x86_64 wheel
-        run: |
-          cd BinaryOptionsToolsV2
-          maturin build --release
-
-      # -------- ARM64 wheel --------
-      - name: Build ARM wheel inside container
-        run: |
-          docker run --rm --platform linux/arm64 \
-            -v $PWD:/work \
-            quay.io/pypa/manylinux_2_34_aarch64 \
-            bash -c "
-              yum install -y curl git openssl-devel &&
-              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
-              source \$HOME/.cargo/env &&
-              /opt/python/cp310-cp310/bin/python -m pip install maturin &&
-              cd /work/BinaryOptionsToolsV2 &&
-              /opt/python/cp310-cp310/bin/maturin build --release
-            "
-
-      # -------- Upload --------
-      - name: Upload wheels
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: wheels
-          path: |
-            BinaryOptionsToolsV2/target/wheels/*.whl
+          path: BinaryOptionsToolsV2/target/wheels/*.whl
