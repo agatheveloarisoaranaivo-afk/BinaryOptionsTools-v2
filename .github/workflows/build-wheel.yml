@@ -1,52 +1,49 @@
-name: Build ARM Wheel
+name: Build wheels
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system deps
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            build-essential \
-            pkg-config \
-            libssl-dev \
-            gcc-aarch64-linux-gnu
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Build wheel
+        uses: addnab/docker-run-action@v3
         with:
-          python-version: "3.10"
+          image: quay.io/pypa/manylinux_2_34_${{ matrix.arch }}
+          options: |
+            --platform linux/${{ matrix.arch == 'aarch64' && 'arm64' || 'amd64' }}
+            -v ${{ github.workspace }}:/io
+          run: |
+            set -e
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-gnu
+            cd /io/BinaryOptionsToolsV2
 
-      - name: Install maturin
-        run: pip install maturin
+            yum install -y \
+              openssl-devel \
+              pkgconfig \
+              git \
+              python3-devel
 
-      - name: Build ARM wheel
-        env:
-          CARGO_BUILD_TARGET: aarch64-unknown-linux-gnu
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-          OPENSSL_DIR: /usr
-          PKG_CONFIG_ALLOW_CROSS: "1"
-        run: |
-          cd BinaryOptionsToolsV2
-          maturin build --release
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            source $HOME/.cargo/env
 
-      - name: Upload wheel
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels
-          path: BinaryOptionsToolsV2/target/wheels/*.whl
+            python3 -m pip install --upgrade pip maturin
 
+            export OPENSSL_DIR=/usr
+            export OPENSSL_LIB_DIR=/usr/lib64
+            export OPENSSL_INCLUDE_DIR=/usr/include
+
+            maturin build --release --strip
