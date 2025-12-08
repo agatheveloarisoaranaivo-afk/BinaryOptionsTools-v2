@@ -1,4 +1,4 @@
-name: Build ARM Wheel
+name: Build wheels (x86_64 + aarch64)
 
 on:
   push:
@@ -6,29 +6,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-aarch64:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Build ARM wheel
+      - name: Build x86_64 wheel
         run: |
-          docker run --rm --platform linux/arm64 \
-            -v ${{ github.workspace }}:/io \
-            quay.io/pypa/manylinux_2_28_aarch64 \
-            /bin/bash -c "
-              dnf install -y git zip openssl-devel pkgconfig && \
-              /opt/python/cp310-cp310/bin/python -m pip install --upgrade pip maturin && \
-              cd /io/BinaryOptionsToolsV2 && \
-              maturin build --release --strip -o /io/wheels
+          docker run --rm \
+            -v $PWD:/io quay.io/pypa/manylinux_2_28_x86_64 \
+            bash -c "
+              /opt/python/cp310-cp310/bin/python -m pip install --upgrade pip
+              /opt/python/cp310-cp310/bin/python -m pip install maturin
+              cd /io
+              /opt/python/cp310-cp310/bin/python -m maturin build --release -o dist
             "
 
-      - name: Upload wheel
+      - name: Build aarch64 wheel
+        run: |
+          docker run --rm --platform linux/arm64 \
+            -v $PWD:/io quay.io/pypa/manylinux_2_28_aarch64 \
+            bash -c "
+              /opt/python/cp310-cp310/bin/python -m pip install --upgrade pip
+              /opt/python/cp310-cp310/bin/python -m pip install maturin
+              cd /io
+              /opt/python/cp310-cp310/bin/python -m maturin build --release -o dist
+            "
+
+      - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: arm-wheel
-          path: wheels/*.whl
+          name: wheels
+          path: dist/*.whl
+
