@@ -1,4 +1,4 @@
-name: Build ARM wheel
+name: Build wheel
 
 on:
   push:
@@ -10,16 +10,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup QEMU (ARM emulation)
-        uses: docker/setup-qemu-action@v3
+      # -------- x86_64 wheel --------
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          platforms: arm64
+          python-version: '3.10'
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
+      - name: Install maturin
+        run: pip install maturin
+
+      - name: Build x86_64 wheel
+        run: |
+          cd BinaryOptionsToolsV2
+          maturin build --release
+
+      # -------- ARM64 wheel --------
       - name: Build ARM wheel inside container
         run: |
           docker run --rm --platform linux/arm64 \
@@ -29,13 +40,15 @@ jobs:
               yum install -y curl git openssl-devel &&
               curl https://sh.rustup.rs -sSf | sh -s -- -y &&
               source \$HOME/.cargo/env &&
-              pip3 install maturin &&
+              /opt/python/cp310-cp310/bin/python -m pip install maturin &&
               cd /work/BinaryOptionsToolsV2 &&
-              maturin build --release
+              /opt/python/cp310-cp310/bin/maturin build --release
             "
 
-      - name: Upload wheel
+      # -------- Upload --------
+      - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels
-          path: BinaryOptionsToolsV2/target/wheels/*.whl
+          path: |
+            BinaryOptionsToolsV2/target/wheels/*.whl
