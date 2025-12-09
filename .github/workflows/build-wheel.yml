@@ -1,4 +1,4 @@
-name: Build ARM (aarch64) wheel
+name: Build ARM wheel
 
 on:
   push:
@@ -10,11 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Enable QEMU
-        uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v3
 
       - name: Build ARM wheel
         run: |
@@ -25,14 +23,9 @@ jobs:
             quay.io/pypa/manylinux2014_aarch64:latest \
             bash -c "
               set -e
-
               YBIN=/opt/python/cp310-cp310/bin/python
-
-              \$YBIN -m pip install --upgrade pip setuptools wheel
-
-              # Build standard Python wheel
-              \$YBIN setup.py bdist_wheel
-
+              \$YBIN -m pip install --upgrade pip build
+              \$YBIN -m build --wheel
               mkdir -p /io/dist
               cp dist/*.whl /io/dist/
             "
