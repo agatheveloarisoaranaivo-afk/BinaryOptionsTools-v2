@@ -10,22 +10,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build ARM wheel in Docker
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ARM wheel
         run: |
           docker run --rm \
-            -v $PWD:/io \
             --platform linux/arm64 \
+            -v $PWD:/io \
             quay.io/pypa/manylinux2014_aarch64 \
             bash -c "
               cd /io &&
-              /opt/python/cp310-cp310/bin/python -m pip install --upgrade pip setuptools wheel &&
+              /opt/python/cp310-cp310/bin/python -m pip install --upgrade pip setuptools wheel build &&
               /opt/python/cp310-cp310/bin/python -m build --wheel
             "
 
-      - name: Upload ARM wheel
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
           name: arm-wheel
