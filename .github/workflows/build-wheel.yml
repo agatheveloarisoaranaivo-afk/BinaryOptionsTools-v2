@@ -1,5 +1,6 @@
-name: Build ARM wheel
+name: Build ARM (aarch64) wheel
 
+# Trigger manual or on push to main
 on:
   push:
     branches: [ "main" ]
@@ -8,27 +9,67 @@ on:
 jobs:
   build-arm-wheel:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build ARM64 wheel with Docker
+      # Register QEMU handlers so we can run arm64 images on x86 runners
+      - name: Set up QEMU (for multi-arch Docker)
+        uses: docker/setup-qemu-action@v3
+        with:
+          image: tonistiigi/binfmt:latest
+
+      # Optional: enable docker buildx (not strictly necessary but useful)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Make dist dir
+        run: mkdir -p dist
+
+      - name: Build wheel inside aarch64 manylinux container
+        # run the aarch64 manylinux image with QEMU emulation registered above
         run: |
           docker run --rm \
             --platform linux/arm64 \
-            -v ${{ github.workspace }}:/io \
+            -v "${{ github.workspace }}":/io \
+            -w /io \
             quay.io/pypa/manylinux2014_aarch64:latest \
             bash -c "
-              yum install -y openssl-devel pkgconfig libffi-devel &&
-              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
-              source \$HOME/.cargo/env &&
-              /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip setuptools wheel maturin &&
-              cd /io &&
-              maturin build --release --strip -o /io/dist
+              set -euo pipefail
+
+              # ensure system build deps for manylinux (yum) - installs openssl headers etc.
+              yum install -y openssl-devel pkgconfig libffi-devel zip git gcc make || true
+
+              # choose a Python ABI available in manylinux image - list /opt/python
+              PYBIN=\$(ls /opt/python | grep cp3 | head -n1)
+              PY=/opt/python/\$PYBIN/bin/python
+
+              # upgrade pip, setuptools, install maturin
+              \$PY -m pip install --upgrade pip setuptools wheel maturin
+
+              # install rust (rustup) for building rust extensions
+              if ! command -v cargo >/dev/null 2>&1; then
+                curl https://sh.rustup.rs -sSf | sh -s -- -y
+                source \$HOME/.cargo/env || true
+              fi
+
+              # ensure OPENSSL env so openssl-sys can find headers/libs in container
+              export OPENSSL_DIR=/usr
+              export OPENSSL_LIB_DIR=/usr/lib64
+              export OPENSSL_INCLUDE_DIR=/usr/include
+
+              # Build with maturin; output goes to /io/dist (host workspace)
+              # --release for optimized, --strip to reduce size
+              \$PY -m maturin build --release --strip -o /io/dist
             "
 
-      - name: Upload wheel artifact
+      - name: List produced files
+        run: |
+          ls -lah dist || true
+
+      - name: Upload ARM wheel artifact
         uses: actions/upload-artifact@v4
         with:
           name: arm-wheel
