@@ -2,37 +2,31 @@ name: Build ARM wheel
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
-  build-arm-wheel:
+  build-arm:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v3
-
-      - name: Build ARM wheel
+      - name: Build ARM wheel in Docker
         run: |
           docker run --rm \
+            -v $PWD:/io \
             --platform linux/arm64 \
-            -v "${{ github.workspace }}":/io \
-            -w /io \
-            quay.io/pypa/manylinux2014_aarch64:latest \
+            quay.io/pypa/manylinux2014_aarch64 \
             bash -c "
-              set -e
-              YBIN=/opt/python/cp310-cp310/bin/python
-              \$YBIN -m pip install --upgrade pip build
-              \$YBIN -m build --wheel
-              mkdir -p /io/dist
-              cp dist/*.whl /io/dist/
+              cd /io &&
+              /opt/python/cp310-cp310/bin/python -m pip install --upgrade pip setuptools wheel &&
+              /opt/python/cp310-cp310/bin/python -m build --wheel
             "
 
-      - name: Upload artifact
+      - name: Upload ARM wheel
         uses: actions/upload-artifact@v4
         with:
           name: arm-wheel
           path: dist/*.whl
-
