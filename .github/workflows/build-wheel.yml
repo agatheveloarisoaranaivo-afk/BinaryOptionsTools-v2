@@ -1,46 +1,40 @@
-name: Build wheels (x86_64 + aarch64)
+name: Build ARM64 wheel
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  build:
+  build-aarch64:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [x86_64, aarch64]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build wheel in container
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build aarch64 wheel (only ARM)
         run: |
-          if [ "${{ matrix.arch }}" = "aarch64" ]; then
-            IMAGE=quay.io/pypa/manylinux_2_28_aarch64
-            PLATFORM=linux/arm64
-            TARGET=aarch64-unknown-linux-gnu
-          else
-            IMAGE=quay.io/pypa/manylinux_2_28_x86_64
-            PLATFORM=linux/amd64
-            TARGET=x86_64-unknown-linux-gnu
-          fi
-
-          docker run --rm --platform $PLATFORM \
-            -v $PWD:/io \
-            $IMAGE \
+          docker run --rm --platform linux/arm64 \
+            -v ${{ github.workspace }}:/io \
+            quay.io/pypa/manylinux_2_28_aarch64 \
             bash -c "
-              yum install -y python3 python3-pip openssl-devel pkgconfig gcc git curl zip
+              yum install -y python3 gcc openssl-devel pkgconfig git curl zip
+              python3 -m ensurepip --upgrade
               python3 -m pip install --upgrade pip
               python3 -m pip install maturin
               cd /io/BinaryOptionsToolsV2
-              export CARGO_BUILD_TARGET=$TARGET
+              export CARGO_BUILD_TARGET=aarch64-unknown-linux-gnu
               maturin build --release --out /io/wheels
             "
 
-      - name: Upload wheels
+      - name: Upload ARM wheel
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.arch }}
+          name: wheels-aarch64
           path: wheels/
+
