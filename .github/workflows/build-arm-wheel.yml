@@ -1,0 +1,36 @@
+name: Build ARM64 wheel (hiddencloud)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build ARM64 wheel
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -v $PWD:/io \
+            quay.io/pypa/manylinux2014_aarch64 \
+            bash -c "
+              cd /io &&
+              /opt/python/cp38-cp38/bin/python -m pip install --upgrade pip setuptools wheel &&
+              /opt/python/cp38-cp38/bin/python -m build --wheel
+            "
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: hiddencloud-arm64-wheel
+          path: dist/*.whl
+

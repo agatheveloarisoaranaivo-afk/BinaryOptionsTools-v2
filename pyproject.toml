@@ -1,11 +1,12 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "binaryoptionstoolsv2"
-version = "0.1.0"
+name = "hiddencloud"
+version = "0.2.0"
+description = "hiddencloud arm build"
 
 [tool.setuptools]
-packages = ["BinaryOptionsToolsV2"]
+packages = ["hiddencloud"]
 
