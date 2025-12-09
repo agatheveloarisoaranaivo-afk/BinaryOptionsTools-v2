@@ -2,7 +2,7 @@ name: Build ARM64 wheel
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -25,15 +25,17 @@ jobs:
             -v ${{ github.workspace }}:/io \
             messense/manylinux2014-cross:aarch64 \
             bash -c "
+              apt-get update && apt-get install -y libssl-dev pkg-config
               curl https://sh.rustup.rs -sSf | sh -s -- -y
               source \$HOME/.cargo/env
               python3 -m pip install --upgrade pip maturin
               cd /io/BinaryOptionsToolsV2
-              export PATH=\$HOME/.cargo/bin:\$PATH
+              export OPENSSL_DIR=/usr
+              export PKG_CONFIG_ALLOW_CROSS=1
               maturin build --release --target aarch64-unknown-linux-gnu --out /io/wheels
             "
 
-      - name: Upload ARM64 wheel
+      - name: Upload ARM wheel
         uses: actions/upload-artifact@v4
         with:
           name: arm64-wheel
