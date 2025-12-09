@@ -1,40 +1,36 @@
-name: Build ARM64 wheel
+name: Build ARM wheel
 
 on:
- push:
-    branches: ["main"]
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build-arm64:
+  build-arm-wheel:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Enable QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Build wheel ARM64
+      - name: Build ARM64 wheel with Docker
         run: |
-          docker run --rm --platform linux/arm64 \
+          docker run --rm \
+            --platform linux/arm64 \
             -v ${{ github.workspace }}:/io \
-            quay.io/pypa/manylinux_2_28_aarch64 \
+            quay.io/pypa/manylinux2014_aarch64:latest \
             bash -c "
-              yum install -y openssl-devel pkgconfig
-              /opt/python/cp311-cp311/bin/pip install --upgrade pip maturin
-              curl https://sh.rustup.rs -sSf | sh -s -- -y
-              source \$HOME/.cargo/env
-              export OPENSSL_DIR=/usr
-              export PKG_CONFIG_ALLOW_CROSS=1
-              cd /io/BinaryOptionsToolsV2
-              /opt/python/cp311-cp311/bin/maturin build --release --target aarch64-unknown-linux-gnu --out /io/wheels
+              yum install -y openssl-devel pkgconfig libffi-devel &&
+              curl https://sh.rustup.rs -sSf | sh -s -- -y &&
+              source \$HOME/.cargo/env &&
+              /opt/python/cp311-cp311/bin/python -m pip install --upgrade pip setuptools wheel maturin &&
+              cd /io &&
+              maturin build --release --strip -o /io/dist
             "
 
-      - name: Upload wheel
+      - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: arm64-wheel
-          path: wheels/
+          name: arm-wheel
+          path: dist/*.whl
 
